@@ -1,32 +1,65 @@
 import json
-
-import streamlit as st
-import requests
+import os
 import time
+
+import requests
+import streamlit as st
 from PIL import Image
 from annotated_text import annotated_text
 
 from clients.openai_client import llm
 
-st.title("Presidential Debate 2024")
+import json
+import streamlit as st
+import requests
+import time
+from PIL import Image
+from annotated_text import annotated_text
+from clients.openai_client import llm
 
-sjb_keypoints = []
-npp_keypoints = []
-contradicttory = []
+BE_URL = os.environ['BE_URL']#"http://localhost:5000"
 
+# Set up login state
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
 
-question = st.text_input("Provide the Topic:")
-if st.button("Submit"):
-    if question:
-        url = "http://localhost:5000/start"
-        headers = {'Content-Type': 'application/json'}
-        data = {'question': question}
+# Login Page
+if not st.session_state.logged_in:
+    st.title("Login")
 
-        # Sending POST request
-        try:
-            response = requests.post(url, headers=headers, data=json.dumps(data), timeout=1)
-        except:
-            pass
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    login_button = st.button("Login")
+
+    if login_button:
+        # Replace these with your actual username and password validation
+        if username == "admin" and password == "password":
+            st.session_state.logged_in = True
+            st.success("Logged in successfully")
+            st.rerun()  # Reload the app with logged-in state
+        else:
+            st.error("Incorrect username or password")
+
+    # Main Content: Only visible if logged in
+if st.session_state.logged_in:
+    st.title("Presidential Debate 2024")
+
+    sjb_keypoints = []
+    npp_keypoints = []
+    contradicttory = []
+
+    question = st.text_input("Provide the Topic:")
+    if st.button("Submit"):
+        if question:
+            url = f"{BE_URL}/start"
+            headers = {'Content-Type': 'application/json'}
+            data = {'question': question}
+
+            # Sending POST request
+            try:
+                response = requests.post(url, headers=headers, data=json.dumps(data), timeout=1)
+            except:
+                pass
 
     #     if response.status_code == 200:
     #         st.success("Message sent successfully!")
@@ -36,16 +69,12 @@ if st.button("Submit"):
     # else:
     #     st.warning("Please enter a question before submitting.")
 
-import streamlit as st
-
-
-
 
 def reset_app():
     st.session_state.clear()
     st.rerun()
 
-    response = requests.get("http://localhost:5000/clear")
+    response = requests.get(f"{BE_URL}/clear")
     if response.status_code == 200:
         print("all clear")
 
@@ -75,7 +104,7 @@ avatars = {
 
 # Function to fetch messages from the Flask server
 def fetch_messages():
-    response = requests.get("http://localhost:5000/messages")
+    response = requests.get(f"{BE_URL}/messages")
     if response.status_code == 200:
         # print(f'flast return: {response.json()}')
         return response.json()
@@ -83,7 +112,6 @@ def fetch_messages():
 
 
 def generate_keypoint(content):
-
     try:
         prompt = f'''
         Below content is response from political party of thier perspective on {question}
@@ -118,7 +146,6 @@ def generate_keypoint(content):
 
 
 def display_keypoints_in_sidebar(party):
-
     main_list = None
 
     if party == 'SJB':
@@ -128,8 +155,8 @@ def display_keypoints_in_sidebar(party):
         main_list = npp_keypoints
         placeholder = npp_keypoints_placeholder
 
-    key_points_str=''
-    hash_tags_str=''
+    key_points_str = ''
+    hash_tags_str = ''
 
     if main_list:
 
@@ -168,33 +195,34 @@ def stream_response(response):
 
 
 while True:
-    print('running')
-    new_messages = fetch_messages()
-    # print(new_messages)
-    if new_messages:
+    if st.session_state.logged_in:
+        print('running')
+        new_messages = fetch_messages()
+        # print(new_messages)
+        if new_messages:
 
-        for msg in new_messages:
-            guids = [x['guid'] for x in st.session_state.messages]
-            if msg['guid'] not in guids:
-                st.session_state.messages.append(msg)
+            for msg in new_messages:
+                guids = [x['guid'] for x in st.session_state.messages]
+                if msg['guid'] not in guids:
+                    st.session_state.messages.append(msg)
 
-                # Update the placeholder in Section 2 with the new keypoints
-                keypoints = generate_keypoint(msg['message'])  # Generate keypoints
-                if keypoints:
-                    if msg['person'] == 'SJB':
-                        sjb_keypoints.append(keypoints)
-                    elif msg['person'] == 'NPP':
-                        npp_keypoints.append(keypoints)
+                    # Update the placeholder in Section 2 with the new keypoints
+                    keypoints = generate_keypoint(msg['message'])  # Generate keypoints
+                    if keypoints:
+                        if msg['person'] == 'SJB':
+                            sjb_keypoints.append(keypoints)
+                        elif msg['person'] == 'NPP':
+                            npp_keypoints.append(keypoints)
 
-                    display_keypoints_in_sidebar(msg['person'])
+                        display_keypoints_in_sidebar(msg['person'])
 
-                avatar = Image.open(avatars[msg['person']])
-                # Set up the layout to display avatar alongside the message
-                cols = st.columns([1, 9])  # Adjust column width ratios as needed
-                with cols[0]:
-                    st.image(avatar, width=50)
-                with cols[1]:
-                    st.write_stream(stream_response(msg['message']))
-                st.markdown("---")
+                    avatar = Image.open(avatars[msg['person']])
+                    # Set up the layout to display avatar alongside the message
+                    cols = st.columns([1, 9])  # Adjust column width ratios as needed
+                    with cols[0]:
+                        st.image(avatar, width=50)
+                    with cols[1]:
+                        st.write_stream(stream_response(msg['message']))
+                    st.markdown("---")
 
-    time.sleep(1)  # Wait for a second before checking for new messages
+        time.sleep(1)  # Wait for a second before checking for new messages
