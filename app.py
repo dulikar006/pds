@@ -19,6 +19,7 @@ from clients.openai_client import llm
 
 BE_URL = os.environ['BE_URL']#"http://localhost:5000"
 
+
 # Set up login state
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
