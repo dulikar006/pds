@@ -1,0 +1,5 @@
+streamlit
+openai
+langchain
+st-annotated-text
+langchain_openai
